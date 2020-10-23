@@ -12,7 +12,29 @@ on:
 
 
 jobs:
+  autoblack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Install Black
+        run: pip install black
+      - name: Run black --check .
+        run: black --check -S jina/drivers/__init__.py
+      - name: If needed, commit black changes to the pull request
+        if: failure()
+        run: |
+          git checkout $GITHUB_HEAD_REF
+          black -S jina/drivers/__init__.py
+          git config --local user.email "dev-bot@jina.ai"
+          git config --local user.name "Jina Dev Bot"
+          git add . && git commit -m "update code-style ${{env.JINA_VERSION}} due to ${{github.event_name}} on ${{github.repository}}" && git push
+
   update-doc:
+    needs: autoblack
     if: "!startsWith(github.event.head_commit.message, 'chore') && !startsWith(github.event.head_commit.message, 'build: hotfix')"
     runs-on: ubuntu-latest
     steps:
@@ -223,6 +245,7 @@ jobs:
           fail_ci_if_error: true
 
   examples-test:
+    needs: autoblack
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
